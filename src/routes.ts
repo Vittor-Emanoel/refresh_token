@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
 import { ListOrdersController } from './controllers/ListOrdersController';
-import { RefreshTokenController } from './controllers/RefreshTokenControlle';
+import { RefreshTokenController } from './controllers/RefreshTokenController';
 import { SignInController } from './controllers/SignInController';
 import { SignUpController } from './controllers/SignUpController';
 import { authMiddleware } from './middlewares/authMiddleware';

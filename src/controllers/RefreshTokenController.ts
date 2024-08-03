@@ -1,15 +1,12 @@
-import { compare } from 'bcryptjs';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-
 import { EXP_TIME_IN_DAYS } from '../config/constants';
-import { AccountsRepository } from '../repositories/AccountsRepository';
 import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 
-export class SignInController {
+
+export class RefreshTokenController {
   static schema = z.object({
-    email: z.string().email().min(1),
-    password: z.string().min(8),
+    refreshToken: z.string().uuid(),
   });
 
   static handle = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -21,39 +18,44 @@ export class SignInController {
         .send({ errors: result.error.issues });
     }
 
-    const { email, password } = result.data;
+    const { refreshToken: refreshTokenId } = result.data;
 
-    const account = await AccountsRepository.findByEmail(email);
+    const refreshToken = await RefreshTokenRepository.findById(refreshTokenId);
 
-    if (!account) {
+    if(!refreshToken) {
       return reply
         .code(401)
-        .send({ errors: 'Invalid credentials.' });
+        .send({ errors: 'Invalid refresh token.' });
     }
 
-    const isPasswordValid = await compare(password, account.password);
 
-    if (!isPasswordValid) {
+    if(Date.now() > refreshToken.expiresAt.getTime()) {
       return reply
-        .code(400)
-        .send({ errors: 'Invalid credentials.' });
+        .code(401)
+        .send({ errors: 'Expired refresh token.' });
     }
 
-    const accessToken = await reply.jwtSign({ sub: account.id });
+
+
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + EXP_TIME_IN_DAYS);
 
-    const { id } = await RefreshTokenRepository.create({
-      accountId: account.id,
-      expiresAt
-    });
+    const [accessToken, newRefreshToken] = await Promise.all([
+      reply.jwtSign({ sub: refreshToken.accountId }),
+      RefreshTokenRepository.create({
+        accountId: refreshToken.accountId,
+        expiresAt
+      }),
+      RefreshTokenRepository.deleteById(refreshToken.id),
+    ]);
 
     return reply
       .code(200)
       .send({
         accessToken,
-        refreshToken: id
+        refreshToken: newRefreshToken.id
       });
+
   };
 }
