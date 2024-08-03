@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { RefreshToken } from '../lib/refreshToken';
 import { AccountsRepository } from '../repositories/AccountsRepository';
+import { RefreshTokenRepository } from '../repositories/RefreshTokenRepository';
 
 export class SignInController {
   static schema = z.object({
@@ -39,7 +40,12 @@ export class SignInController {
     }
 
     const accessToken = await reply.jwtSign({ sub: account.id });
-    const refreshToken = RefreshToken.generate(account.id)
+    const refreshToken = RefreshToken.generate(account.id);
+
+    await RefreshTokenRepository.create({
+      accountId: account.id,
+      token: refreshToken
+    });
 
     return reply
       .code(200)
